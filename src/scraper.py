@@ -3,9 +3,25 @@ import email
 import pandas as pd
 import re
 import json
+import pytz
 
 from tqdm import tqdm
+from datetime import datetime
 
+def authenticate():
+    """
+    Connect to google apps
+
+    Returns:
+        TODO
+    """
+    with open('config.json','r') as file:
+        config = json.load(file)
+
+    imap = imaplib.IMAP4_SSL('imap.gmail.com',993)
+    imap.login(config["user"], config["pwd"])
+
+    return imap
 
 def get_all_email_IDs_from_sender(imap,sender):
     """
@@ -24,7 +40,7 @@ def get_all_email_IDs_from_sender(imap,sender):
     imap.select('inbox')
 
     # Search for emails from the specific sender
-    status, messages = imap.search(None, 'FROM "webalerts@uwcu.org"')
+    status, messages = imap.search(None, f'FROM "{sender}"')
 
     # Convert the byte string to a list of email IDs
     return messages[0].split()
@@ -66,18 +82,23 @@ def get_email_from_ID(imap, ID):
             # Get email details
             msg_data["subject"] = msg['subject']
             msg_data["from"] = msg['from']
-            msg_data['date'] = msg['date']
+            msg_data['date'] = datetime.strptime(
+                        msg['date'].replace('+0000 (UTC)','').strip(),
+                        '%a, %d %b %Y %H:%M:%S'
+                    )
+
+            msg_data['date'] = msg_data['date'].replace(tzinfo=pytz.utc) 
 
             # Extract the email body
             if msg.is_multipart():
 
                 for part in msg.walk():
 
-                    if part.get_content_type() == "text/plain"
+                    if part.get_content_type() == "text/plain":
                     
                         msg_data["body"] += part.get_payload(decode=True).decode()
             else:
-                body = msg.get_payload(decode=True).decode()
+                msg_data["body"] += msg.get_payload(decode=True).decode()
 
         msgs_data.append(msg_data)
         
@@ -93,7 +114,7 @@ def scrap():
 
 
 
-""""
+r"""
 df = pd.DataFrame({
         "Date": [],
         "Card":[],
